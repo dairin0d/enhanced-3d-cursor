@@ -3,6 +3,10 @@ Enhanced 3D Cursor
 
 ...
 
+Using as a Social Location tool
+----------
+...
+
 Installing
 ----------
 
