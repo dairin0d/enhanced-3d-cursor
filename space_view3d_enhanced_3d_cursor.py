@@ -25,7 +25,7 @@ bl_info = {
     "blender": (2, 6, 3),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
         "Scripts/3D_interaction/Enhanced_3D_Cursor",
     "tracker_url": "http://projects.blender.org/tracker/index.php?"\
         "func=detail&aid=28451",
@@ -3980,6 +3980,11 @@ class Cursor3DToolsSettings(bpy.types.PropertyGroup):
         type=TransformExtraOptionsProp,
         options={'HIDDEN'})
     
+    cursor_visible = bpy.props.BoolProperty(
+        name="Cursor visibility",
+        description="Cursor visibility",
+        default=True)
+    
     draw_guides = bpy.props.BoolProperty(
         name="Guides",
         description="Display guides",
@@ -4140,7 +4145,12 @@ class Cursor3DTools(bpy.types.Panel):
             text="", icon='SNAP_ON', toggle=True)
         
         row = layout.row()
-        row.label(text="Draw")
+        #row.label(text="Draw")
+        #row.prop(settings, "cursor_visible", text="", toggle=True,
+        #         icon=('RESTRICT_VIEW_OFF' if settings.cursor_visible
+        #               else 'RESTRICT_VIEW_ON'))
+        row.prop(settings, "cursor_visible", text="", toggle=True,
+                 icon='RESTRICT_VIEW_OFF')
         row = row.split(1 / 3, align=True)
         row.prop(settings, "draw_N",
             text="N", toggle=True, index=0)
@@ -4434,7 +4444,7 @@ def transform_orientations_panel_extension(self, context):
 
 # ===== CURSOR MONITOR ===== #
 class CursorMonitor(bpy.types.Operator):
-    '''Monitor changes in cursor location and write to history'''
+    """Monitor changes in cursor location and write to history"""
     bl_idname = "view3d.cursor3d_monitor"
     bl_label = "Cursor Monitor"
     
@@ -5073,10 +5083,18 @@ def gl_matrix_to_buffer(m):
 
 
 # ===== DRAWING CALLBACKS ===== #
+cursor_save_location = Vector()
+
 def draw_callback_view(self, context):
+    global cursor_save_location
+    
     settings = find_settings()
     if settings is None:
         return
+    
+    cursor_save_location = Vector(bpy.context.space_data.cursor_location)
+    if not settings.cursor_visible:
+        bpy.context.space_data.cursor_location = Vector([float('nan')] * 3)
     
     update_stick_to_obj(context)
     
@@ -5152,10 +5170,14 @@ def draw_callback_header_px(self, context):
     bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
 
 def draw_callback_px(self, context):
+    global cursor_save_location
     settings = find_settings()
     if settings is None:
         return
     library = settings.libraries.get_item()
+    
+    if not settings.cursor_visible:
+        bpy.context.space_data.cursor_location = cursor_save_location
     
     tfm_operator = CursorDynamicSettings.active_transform_operator
     
