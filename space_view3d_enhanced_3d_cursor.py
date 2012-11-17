@@ -132,8 +132,7 @@ from mathutils.geometry import (intersect_line_sphere,
                                 intersect_line_plane,
                                 )
 
-from bpy_extras.view3d_utils import (region_2d_to_vector_3d,
-                                     region_2d_to_location_3d,
+from bpy_extras.view3d_utils import (region_2d_to_location_3d,
                                      location_3d_to_region_2d,
                                      )
 
@@ -309,7 +308,7 @@ class EnhancedSetCursor(bpy.types.Operator):
         
         # Initial run
         self.try_process_input(context, event, True)
-        
+
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
     
@@ -3055,9 +3054,9 @@ class MeshCache:
             if reuse and ((variant == 'RAW') or (len(obj.modifiers) == 0)):
                 return (obj, False)
             else:
-                force_objectmode = (obj_mode in ('EDIT', 'SCULPT'))
+                force_objectmode = (obj_mode in {'EDIT', 'SCULPT'})
                 return (self._to_mesh(obj, variant, force_objectmode), True)
-        elif obj_type in ('CURVE', 'SURFACE', 'FONT'):
+        elif obj_type in {'CURVE', 'SURFACE', 'FONT'}:
             if variant == 'RAW':
                 bm = bmesh.new()
                 for spline in data.splines:
@@ -3992,7 +3991,7 @@ class Cursor3DToolsSettings(bpy.types.PropertyGroup):
     
     cursor_visible = bpy.props.BoolProperty(
         name="Cursor visibility",
-        description="Cursor visibility",
+        description="Cursor visibility (causing bugs, commented out)",
         default=True)
     
     draw_guides = bpy.props.BoolProperty(
@@ -4103,7 +4102,7 @@ class TransformExtraOptions(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     #bl_context = "object"
-    #bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {'DEFAULT_CLOSED'}
     
     def draw(self, context):
         layout = self.layout
@@ -4122,7 +4121,7 @@ class Cursor3DTools(bpy.types.Panel):
     bl_idname = "OBJECT_PT_cursor_3d_tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    #bl_context = "object"
+    bl_options = {'DEFAULT_CLOSED'}
     
     def draw(self, context):
         layout = self.layout
@@ -4159,7 +4158,10 @@ class Cursor3DTools(bpy.types.Panel):
         #row.prop(settings, "cursor_visible", text="", toggle=True,
         #         icon=('RESTRICT_VIEW_OFF' if settings.cursor_visible
         #               else 'RESTRICT_VIEW_ON'))
-        row.prop(settings, "cursor_visible", text="", toggle=True,
+        subrow = row.row()
+        subrow.enabled = False
+        subrow.alert = True
+        subrow.prop(settings, "cursor_visible", text="", toggle=True,
                  icon='RESTRICT_VIEW_OFF')
         row = row.split(1 / 3, align=True)
         row.prop(settings, "draw_N",
@@ -4644,10 +4646,7 @@ class CursorMonitor(bpy.types.Operator):
         CursorMonitor.is_running = True
         
         CursorDynamicSettings.recalc_csu(context, 'PRESS')
-        
-        # Currently there seems to be only one window manager
-        context.window_manager.modal_handler_add(self)
-        
+
         # I suppose that cursor position would change
         # only with user interaction.
         #self._timer = context.window_manager. \
@@ -4670,6 +4669,9 @@ class CursorMonitor(bpy.types.Operator):
         
         # Here we cannot return 'PASS_THROUGH',
         # or Blender will crash!
+
+        # Currently there seems to be only one window
+        context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
     
     def cancel(self, context):
@@ -5161,7 +5163,10 @@ def draw_callback_view(self, context):
     
     cursor_save_location = Vector(bpy.context.space_data.cursor_location)
     if not settings.cursor_visible:
-        bpy.context.space_data.cursor_location = Vector([float('nan')] * 3)
+        # This is causing problems! See <http://projects.blender.org/
+        # tracker/index.php?func=detail&aid=33197&group_id=9&atid=498>
+        #bpy.context.space_data.cursor_location = Vector([float('nan')] * 3)
+        pass
 
 def draw_callback_header_px(self, context):
     r = context.region
@@ -5536,12 +5541,11 @@ class DelayRegistrationOperator(bpy.types.Operator):
     
     def execute(self, context):
         self.keymap_updated = False
-        
-        context.window_manager.modal_handler_add(self)
-        
+
         self._timer = context.window_manager.\
             event_timer_add(0.1, context.window)
-        
+
+        context.window_manager.modal_handler_add(self)        
         return {'RUNNING_MODAL'}
     
     def cancel(self, context):
