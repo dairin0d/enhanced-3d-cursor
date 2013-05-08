@@ -2777,11 +2777,7 @@ class Snap3DUtility(SnapUtilityBase):
         
         _ln = ln.copy()
         
-        try:
-            face = obj.data.tessfaces[face_id]
-        except IndexError:
-            obj.data.update(calc_tessface=True)
-            face = obj.data.tessfaces[face_id]
+        face = obj.data.tessfaces[face_id]
         L = None
         t1 = None
         
@@ -3426,7 +3422,7 @@ class TransformExtraOptionsProp(bpy.types.PropertyGroup):
         description="Normal interpolation mode for snapping", 
         default='SMOOTH')
     snap_only_to_solid = bpy.props.BoolProperty(
-        name="Snap only to soild", 
+        name="Snap only to solid", 
         description="Ignore wireframe/non-solid objects during snapping", 
         default=False)
     snap_element_screen_size = bpy.props.IntProperty(
