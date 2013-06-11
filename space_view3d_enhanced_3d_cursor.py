@@ -21,7 +21,7 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (2, 9, 0),
+    "version": (2, 9, 1),
     "blender": (2, 65, 4),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
