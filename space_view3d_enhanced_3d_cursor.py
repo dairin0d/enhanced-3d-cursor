@@ -319,6 +319,7 @@ class EnhancedSetCursor(bpy.types.Operator):
         set_stick_obj(context.scene, self.stick_obj_name, self.stick_obj_pos)
         
         self.finalize(context)
+        return {'CANCELLED'}
     
     # ====== CLEANUP/FINALIZE ====== #
     def finalize(self, context):
@@ -4729,6 +4730,7 @@ class CursorMonitor(bpy.types.Operator):
         
         # Unregister callbacks...
         CursorMonitor.handle_remove(context)
+        return {'CANCELLED'}
 
 
 # ===== MATH / GEOMETRY UTILITIES ===== #
@@ -5511,6 +5513,8 @@ class DelayRegistrationOperator(bpy.types.Operator):
     
     def cancel(self, context):
         DelayRegistrationOperator.timer_remove(context)
+        
+        return {'CANCELLED'}
 
 
 def register():
