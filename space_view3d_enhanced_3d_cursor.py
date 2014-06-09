@@ -31,19 +31,6 @@ bl_info = {
     "category": "3D View"}
 
 """
-ATTENTION:
-somewhere around 45447 revision object.ray_cast() starts conflicting with
-mesh.update(calc_tessface=True) -- at least when invoked within one
-operator cycle, object.ray_cast() crashes if object's tessfaces were
-update()d earlier in the code. However, not update()ing the meshes
-seems to work fine -- ray_cast() does its job, and it's possible to
-access tessfaces afterwards.
-mesh.calc_tessface() -- ? crashes too
-
-Seems like now axes are stored in columns instead of rows.
-Perhaps it's better to write utility functions to create/decompose
-matrices from/to 3D-vector axes and a translation component
-
 Breakdown:
     Addon registration
     Keymap utils
