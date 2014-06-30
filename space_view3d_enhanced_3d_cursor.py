@@ -21,7 +21,7 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (2, 9, 3),
+    "version": (2, 9, 4),
     "blender": (2, 7, 0),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
@@ -2314,7 +2314,9 @@ class SnapUtilityBase:
     def snap(self, xy, src_matrix, initial_matrix, do_raycast, \
         alt_snap, vu, csu, modify_Surface, use_object_centers):
 
-        grid_step = self.grid_steps[alt_snap]
+        v3d = csu.space_data
+
+        grid_step = self.grid_steps[alt_snap] * v3d.grid_scale
 
         su = self
         use_relative_coords = su.use_relative_coords
