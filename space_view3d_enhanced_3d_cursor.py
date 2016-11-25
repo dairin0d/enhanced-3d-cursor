@@ -21,7 +21,7 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (2, 9, 9),
+    "version": (3, 0, 0),
     "blender": (2, 7, 7),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
@@ -221,8 +221,9 @@ class EnhancedSetCursor(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         area_types = {'VIEW_3D',} # also: IMAGE_EDITOR ?
-        return (context.area.type in area_types) and \
-               (context.region.type == "WINDOW")
+        return ((context.area.type in area_types) and
+                (context.region.type == "WINDOW") and
+                (not find_settings().cursor_lock))
 
     def modal(self, context, event):
         context.area.tag_redraw()
@@ -4021,6 +4022,11 @@ class Cursor3DToolsSettings(bpy.types.PropertyGroup):
 "and becomes the less responsive the more complex scene you have)!",
         default=True)
 
+    cursor_lock = bpy.props.BoolProperty(
+        name="Lock cursor location",
+        description="Prevent accidental cursor movement",
+        default=False)
+
     draw_guides = bpy.props.BoolProperty(
         name="Guides",
         description="Display guides",
@@ -4177,21 +4183,15 @@ class Cursor3DTools(bpy.types.Panel):
         row.prop(settings, "stick_to_obj",
             text="", icon='SNAP_ON', toggle=True)
 
-        row = layout.row()
-        row.label(text="Draw")
-        '''
-        row.prop(settings, "cursor_visible", text="", toggle=True,
-                 icon=('RESTRICT_VIEW_OFF' if settings.cursor_visible
-                       else 'RESTRICT_VIEW_ON'))
-        #'''
-        #'''
-        subrow = row.row()
-        #subrow.enabled = False
+        row = layout.split(0.5)
+        subrow = row.split(0.5)
+        subrow.prop(settings, "cursor_lock", text="", toggle=True,
+                 icon=('LOCKED' if settings.cursor_lock else 'UNLOCKED'))
+        subrow = subrow.split(1)
         subrow.alert = True
         subrow.prop(settings, "cursor_visible", text="", toggle=True,
                  icon=('RESTRICT_VIEW_OFF' if settings.cursor_visible
                        else 'RESTRICT_VIEW_ON'))
-        #'''
         row = row.split(1 / 3, align=True)
         row.prop(settings, "draw_N",
             text="N", toggle=True, index=0)
@@ -4305,6 +4305,96 @@ class SetCursorDialog(bpy.types.Operator):
         row = layout.row()
         row.prop(tfm_opts, "use_relative_coords", text="Relative")
         row.prop(v3d, "transform_orientation", text="")
+
+# Adapted from Chromoly's lock_cursor3d
+def selection_global_positions(context):
+    if context.mode == 'EDIT_MESH':
+        ob = context.active_object
+        mat = ob.matrix_world
+        bm = bmesh.from_edit_mesh(ob.data)
+        verts = [v for v in bm.verts if v.select]
+        return [mat * v.co for v in verts]
+    elif context.mode == 'OBJECT':
+        return [ob.matrix_world.to_translation()
+                for ob in context.selected_objects]
+
+# Adapted from Chromoly's lock_cursor3d
+def center_of_circumscribed_circle(vecs):
+    if len(vecs) == 1:
+        return vecs[0]
+    elif len(vecs) == 2:
+        return (vecs[0] + vecs[1]) / 2
+    elif len(vecs) == 3:
+        v1, v2, v3 = vecs
+        if v1 != v2 and v2 != v3 and v3 != v1:
+            v12 = v2 - v1
+            v13 = v3 - v1
+            med12 = (v1 + v2) / 2
+            med13 = (v1 + v3) / 2
+            per12 = v13 - v13.project(v12)
+            per13 = v12 - v12.project(v13)
+            inter = intersect_line_line(med12, med12 + per12,
+                                        med13, med13 + per13)
+            if inter:
+                return (inter[0] + inter[1]) / 2
+        return (v1 + v2 + v3) / 3
+    return None
+
+def center_of_inscribed_circle(vecs):
+    if len(vecs) == 1:
+        return vecs[0]
+    elif len(vecs) == 2:
+        return (vecs[0] + vecs[1]) / 2
+    elif len(vecs) == 3:
+        v1, v2, v3 = vecs
+        L1 = (v3 - v2).magnitude
+        L2 = (v3 - v1).magnitude
+        L3 = (v2 - v1).magnitude
+        return (L1*v1 + L2*v2 + L3*v3) / (L1 + L2 + L3)
+    return None
+
+# Adapted from Chromoly's lock_cursor3d
+class SnapCursor_Circumscribed(bpy.types.Operator):
+    bl_idname = "view3d.snap_cursor_to_circumscribed"
+    bl_label = "Cursor to Circumscribed"
+    bl_description = "Snap cursor to the center of the circumscribed circle"
+
+    def execute(self, context):
+        vecs = selection_global_positions(context)
+        if vecs is None:
+            self.report({'WARNING'}, 'Not implemented \
+                        for %s mode' % context.mode)
+            return {'CANCELLED'}
+        
+        pos = center_of_circumscribed_circle(vecs)
+        if pos is None:
+            self.report({'WARNING'}, 'Select 3 objects/elements')
+            return {'CANCELLED'}
+
+        set_cursor_location(pos, v3d=context.space_data)
+
+        return {'FINISHED'}
+
+class SnapCursor_Inscribed(bpy.types.Operator):
+    bl_idname = "view3d.snap_cursor_to_inscribed"
+    bl_label = "Cursor to Inscribed"
+    bl_description = "Snap cursor to the center of the inscribed circle"
+
+    def execute(self, context):
+        vecs = selection_global_positions(context)
+        if vecs is None:
+            self.report({'WARNING'}, 'Not implemented \
+                        for %s mode' % context.mode)
+            return {'CANCELLED'}
+        
+        pos = center_of_inscribed_circle(vecs)
+        if pos is None:
+            self.report({'WARNING'}, 'Select 3 objects/elements')
+            return {'CANCELLED'}
+
+        set_cursor_location(pos, v3d=context.space_data)
+
+        return {'FINISHED'}
 
 class AlignOrientationProperties(bpy.types.PropertyGroup):
     axes_items = [
@@ -5481,6 +5571,11 @@ class ThisAddonPreferences(bpy.types.AddonPreferences):
         row.prop(settings, "auto_register_keymaps")
         row.prop(settings, "free_coord_precision")
 
+def extra_snap_menu_draw(self, context):
+    layout = self.layout
+    layout.operator("view3d.snap_cursor_to_circumscribed")
+    layout.operator("view3d.snap_cursor_to_inscribed")
+
 
 def register():
     bpy.utils.register_module(__name__)
@@ -5503,7 +5598,9 @@ def register():
     # View properties panel is already long. Appending something
     # to it would make it too inconvenient
     #bpy.types.VIEW3D_PT_view3d_properties.append(draw_cursor_tools)
-    
+
+    bpy.types.VIEW3D_MT_snap.append(extra_snap_menu_draw)
+
     bpy.app.handlers.scene_update_post.append(scene_update_post_kmreg)
 
 
@@ -5534,6 +5631,8 @@ def unregister():
         transform_orientations_panel_extension)
 
     #bpy.types.VIEW3D_PT_view3d_properties.remove(draw_cursor_tools)
+
+    bpy.types.VIEW3D_MT_snap.remove(extra_snap_menu_draw)
 
 
 if __name__ == "__main__":
