@@ -21,7 +21,7 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (3, 0, 1),
+    "version": (3, 0, 2),
     "blender": (2, 7, 7),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
@@ -157,6 +157,8 @@ class EnhancedSetCursor(bpy.types.Operator):
     key_coordsys_map = {
         'LEFT_BRACKET':-1,
         'RIGHT_BRACKET':1,
+        ';':-1, # Instead of [ for French keyboards
+        '!':1, # Instead of ] for French keyboards
         'J':'VIEW',
         'K':"Surface",
         'L':'LOCAL',
@@ -476,9 +478,20 @@ class EnhancedSetCursor(bpy.types.Operator):
                 self.coord_format = "{:." + \
                     str(settings.free_coord_precision) + "f}"
 
+            new_orient1 = self.key_coordsys_map.get(event.type, None)
+            new_orient2 = self.key_coordsys_map.get(event.unicode, None)
+            new_orientation = (new_orient1 or new_orient2)
+            if new_orientation:
+                self.csu.set_orientation(new_orientation)
+
+                self.update_origin_projection(context)
+
+                if event.ctrl:
+                    self.snap_to_system_origin()
+
             if (event.type == 'ZERO') and event.ctrl:
                 self.snap_to_system_origin()
-            else:
+            elif new_orientation is None: # avoid conflicting shortcuts
                 self.process_axis_input(event)
 
             if event.alt:
@@ -504,15 +517,6 @@ class EnhancedSetCursor(bpy.types.Operator):
                                 c = "\t"
                             ttext += c
                         self.set_axes_text(ttext, True)
-
-            if event.type in self.key_coordsys_map:
-                new_orientation = self.key_coordsys_map[event.type]
-                self.csu.set_orientation(new_orientation)
-
-                self.update_origin_projection(context)
-
-                if event.ctrl:
-                    self.snap_to_system_origin()
 
             if event.type in self.key_map["use_object_centers"]:
                 v3d.use_pivot_point_align = not v3d.use_pivot_point_align
