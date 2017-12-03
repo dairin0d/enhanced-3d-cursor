@@ -21,11 +21,11 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (3, 0, 2),
+    "version": (3, 0, 4),
     "blender": (2, 7, 7),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
+    "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/Py/"
         "Scripts/3D_interaction/Enhanced_3D_Cursor",
     "tracker_url": "https://github.com/dairin0d/enhanced-3d-cursor/issues",
     "category": "3D View"}
@@ -2141,6 +2141,8 @@ class View3DUtility:
                     bone = obj.data.bones[v3d.lock_bone]
             except:
                 bone = None
+        else:
+            bone = None
 
         return obj, bone
 
@@ -5535,14 +5537,17 @@ def update_keymap(activate):
 
     wm = bpy.context.window_manager
     userprefs = bpy.context.user_preferences
-    addon_prefs = userprefs.addons[__name__].preferences
     settings = find_settings()
 
-    wm.cursor_3d_runtime_settings.use_cursor_monitor = \
-        addon_prefs.use_cursor_monitor
-
     auto_register_keymaps = settings.auto_register_keymaps
-    auto_register_keymaps &= addon_prefs.auto_register_keymaps
+
+    # add a check for Templates switching introduced in 2.78.x/2.79
+    if __name__ in userprefs.addons.keys():
+        addon_prefs = userprefs.addons[__name__].preferences
+        wm.cursor_3d_runtime_settings.use_cursor_monitor = \
+            addon_prefs.use_cursor_monitor
+        auto_register_keymaps &= addon_prefs.auto_register_keymaps
+
     if not auto_register_keymaps:
         return
 
