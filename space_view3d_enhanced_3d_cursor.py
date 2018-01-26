@@ -21,7 +21,7 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (3, 0, 5),
+    "version": (3, 0, 6),
     "blender": (2, 7, 7),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
@@ -3507,6 +3507,28 @@ def update_history_id(self, context):
             else:
                 history.last_id = history.curr_id
             history.curr_id = history.current_id
+
+class CursorHistoryBackward(bpy.types.Operator):
+    bl_idname = "scene.cursor_3d_history_backward"
+    bl_label = "Cursor History Backward"
+    bl_description = "Jump to previous position in cursor history"
+
+    def execute(self, context):
+        settings = find_settings()
+        history = settings.history
+        history.current_id += 1 # max is oldest
+        return {'FINISHED'}
+
+class CursorHistoryForward(bpy.types.Operator):
+    bl_idname = "scene.cursor_3d_history_forward"
+    bl_label = "Cursor History Forward"
+    bl_description = "Jump to next position in cursor history"
+
+    def execute(self, context):
+        settings = find_settings()
+        history = settings.history
+        history.current_id -= 1 # 0 is newest
+        return {'FINISHED'}
 
 class CursorHistoryProp(bpy.types.PropertyGroup):
     max_size_limit = 500
