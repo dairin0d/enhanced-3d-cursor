@@ -21,7 +21,7 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (3, 0, 6),
+    "version": (3, 0, 7),
     "blender": (2, 7, 7),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
@@ -5610,6 +5610,14 @@ def scene_update_post_kmreg(scene):
     bpy.app.handlers.scene_update_post.remove(scene_update_post_kmreg)
     update_keymap(True)
 
+@bpy.app.handlers.persistent
+def scene_load_post(*args):
+    wm = bpy.context.window_manager
+    userprefs = bpy.context.user_preferences
+    addon_prefs = userprefs.addons[__name__].preferences
+    wm.cursor_3d_runtime_settings.use_cursor_monitor = \
+        addon_prefs.use_cursor_monitor
+
 class ThisAddonPreferences(bpy.types.AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -5665,6 +5673,8 @@ def register():
     bpy.types.VIEW3D_MT_snap.append(extra_snap_menu_draw)
 
     bpy.app.handlers.scene_update_post.append(scene_update_post_kmreg)
+    
+    bpy.app.handlers.load_post.append(scene_load_post)
 
 
 def unregister():
@@ -5696,6 +5706,8 @@ def unregister():
     #bpy.types.VIEW3D_PT_view3d_properties.remove(draw_cursor_tools)
 
     bpy.types.VIEW3D_MT_snap.remove(extra_snap_menu_draw)
+    
+    bpy.app.handlers.load_post.remove(scene_load_post)
 
 
 if __name__ == "__main__":
