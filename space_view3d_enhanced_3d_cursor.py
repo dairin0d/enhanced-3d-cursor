@@ -21,7 +21,7 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (3, 0, 7),
+    "version": (3, 0, 8),
     "blender": (2, 7, 7),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
@@ -57,6 +57,9 @@ First step is to re-make the cursor addon (make something usable first).
 CAD tools should be done without the hassle.
 
 TODO:
+    Make 3D/2D/header visualizations independent from CursorMonitor
+    (right now, disabling the monitor also disables visualization)
+
     strip trailing space? (one of campbellbarton's commits did that)
 
     IDEAS:
@@ -216,8 +219,20 @@ class EnhancedSetCursor(bpy.types.Operator):
     gizmo_factor = 0.15
     click_period = 0.25
 
-    angle_grid_steps = {True:1.0, False:5.0}
-    scale_grid_steps = {True:0.01, False:0.1}
+    @staticmethod
+    def angle_grid_step(flags):
+        s = (1.0 if flags[0] else 5.0)
+        return s * (0.1 if flags[1] else 1.0)
+    
+    @staticmethod
+    def trackball_grid_step(flags):
+        s = (0.1 if flags[0] else 0.5)
+        return s * (0.1 if flags[1] else 1.0)
+    
+    @staticmethod
+    def scale_grid_step(flags):
+        s = (0.01 if flags[0] else 0.1)
+        return s * (0.1 if flags[1] else 1.0)
 
     # ====== OPERATOR METHOD OVERLOADS ====== #
     @classmethod
@@ -569,7 +584,7 @@ class EnhancedSetCursor(bpy.types.Operator):
             )
 
         self.do_raycast = ("MOUSE" in event.type)
-        self.grid_substep = event.shift
+        self.grid_substep = (event.shift, event.alt)
         self.modify_surface_orientation = (len(self.particles) == 1)
         self.xy = Vector((event.mouse_region_x, event.mouse_region_y))
 
@@ -644,11 +659,7 @@ class EnhancedSetCursor(bpy.types.Operator):
         elif n_axes == 2:
             # rotate using XY coords as two values
             offset = (delta_xy - self.prev_delta_xy) * (math.pi / 180.0)
-
-            if self.grid_substep:
-                offset *= 0.1
-            else:
-                offset *= 0.5
+            offset *= self.trackball_grid_step(self.grid_substep)
 
             j = 0
             for i in range(3):
@@ -743,7 +754,7 @@ class EnhancedSetCursor(bpy.types.Operator):
         return matrix
 
     def transform_rotate(self, particle):
-        grid_step = self.angle_grid_steps[self.grid_substep]
+        grid_step = self.angle_grid_step(self.grid_substep)
         grid_step *= (math.pi / 180.0)
 
         for i in range(3):
@@ -778,7 +789,7 @@ class EnhancedSetCursor(bpy.types.Operator):
         return matrix
 
     def transform_scale(self, particle):
-        grid_step = self.scale_grid_steps[self.grid_substep]
+        grid_step = self.scale_grid_step(self.grid_substep)
 
         for i in range(3):
             if self.axes_values[i] and self.axes_eval_success[i]:
@@ -2322,7 +2333,7 @@ class SnapUtilityBase:
 
         v3d = csu.space_data
 
-        grid_step = self.grid_steps[alt_snap] * v3d.grid_scale
+        grid_step = self.grid_step(alt_snap, v3d)
 
         su = self
         use_relative_coords = su.use_relative_coords
@@ -2477,7 +2488,13 @@ class SnapUtilityBase:
         return res_matrix
 
 class Snap3DUtility(SnapUtilityBase):
-    grid_steps = {False:1.0, True:0.1}
+    @staticmethod
+    def grid_step(flags, v3d):
+        f = 1.0 / v3d.grid_subdivisions
+        s = v3d.grid_scale
+        if flags[0]: s *= f
+        if flags[1]: s *= f*f
+        return s
 
     cube_verts = [Vector((i, j, k))
         for i in (-1, 1)
@@ -4220,6 +4237,7 @@ class Cursor3DTools(bpy.types.Panel):
             text="", icon='EDITMODE_HLT', toggle=True)
         row.prop(settings, "stick_to_obj",
             text="", icon='SNAP_ON', toggle=True)
+        row.active = wm.cursor_3d_runtime_settings.use_cursor_monitor
 
         row = layout.split(0.5)
         subrow = row.split(0.5)
@@ -4230,6 +4248,7 @@ class Cursor3DTools(bpy.types.Panel):
         subrow.prop(settings, "cursor_visible", text="", toggle=True,
                  icon=('RESTRICT_VIEW_OFF' if settings.cursor_visible
                        else 'RESTRICT_VIEW_ON'))
+        subrow.active = wm.cursor_3d_runtime_settings.use_cursor_monitor
         row = row.split(1 / 3, align=True)
         row.prop(settings, "draw_N",
             text="N", toggle=True, index=0)
@@ -4237,16 +4256,20 @@ class Cursor3DTools(bpy.types.Panel):
             text="T1", toggle=True, index=1)
         row.prop(settings, "draw_T2",
             text="T2", toggle=True, index=2)
+        row.active = wm.cursor_3d_runtime_settings.use_cursor_monitor
 
         # === HISTORY === #
         history = settings.history
         row = layout.row(align=True)
         row.prop(wm.cursor_3d_runtime_settings, "use_cursor_monitor",
             text="", toggle=True, icon='REC')
-        row.prop(history, "show_trace", text="", icon='SORTTIME')
+        subrow = row.row(align=True)
+        subrow.prop(history, "show_trace", text="", icon='SORTTIME')
+        subrow.active = wm.cursor_3d_runtime_settings.use_cursor_monitor
         row = row.split(0.35, True)
         row.prop(history, "max_size", text="")
         row.prop(history, "current_id", text="")
+        row.active = wm.cursor_3d_runtime_settings.use_cursor_monitor
 
         # === BOOKMARK LIBRARIES === #
         settings.libraries.draw(context, layout)
